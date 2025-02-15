@@ -16,14 +16,15 @@ function installPackages() {
 installPackages();
 
 // تحميل ملف Firebase Service Account
-if (!fs.existsSync('./serviceAccountKey.json')) {
-    console.log("❌ ملف 'serviceAccountKey.json' غير موجود. يرجى إضافته.");
+if (!process.env.FIREBASE_CREDENTIALS) {
+    console.log("❌ متغير البيئة 'FIREBASE_CREDENTIALS' غير موجود. يرجى إضافته في Railway.");
     process.exit(1);
 }
 
 admin.initializeApp({
-    credential: admin.credential.cert(require('./serviceAccountKey.json'))
+    credential: admin.credential.cert(JSON.parse(process.env.FIREBASE_CREDENTIALS))
 });
+
 
 const db = admin.firestore();
 const bot = new Telegraf("7834569515:AAHGBtlyJ-clDjc_jv2j9TDudV0K0AlRjeo"); // استبدل بالتوكن الخاص بك
