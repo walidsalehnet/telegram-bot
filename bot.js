@@ -1,132 +1,91 @@
 const { Telegraf, Markup } = require('telegraf');
 const admin = require('firebase-admin');
 
-// تحميل بيانات Firebase
+// ✅ تحميل بيانات Firebase
 admin.initializeApp({
     credential: admin.credential.cert(JSON.parse(process.env.FIREBASE_CREDENTIALS))
 });
 
 const db = admin.firestore();
-const bot = new Telegraf("7834569515:AAHGBtlyJ-clDjc_jv2j9TDudV0K0AlRjeo"); // استبدل بالتوكن الخاص بك
+const bot = new Telegraf("YOUR_BOT_TOKEN"); // 🔹 ضع هنا توكن البوت الخاص بك
 
-// قائمة الأوامر كأزرار
+// ✅ قائمة الأوامر كأزرار
 bot.start((ctx) => {
     ctx.reply(
         '👋 أهلا بك في بوت الإدارة! اختر من القائمة:',
         Markup.keyboard([
             ['📋 عرض المستخدمين', '➕ إضافة رصيد', '➖ خصم رصيد'],
-            ['🗑️ حذف مستخدم', '🔄 تحديث البيانات']
+            ['🗑️ حذف مستخدم', '🔄 تحديث البيانات'],
+            ['📦 عرض الطلبات', '🔒 قفل الطلب', '🗑️ حذف طلب']
         ])
         .resize()
         .oneTime()
     );
 });
 
-// عرض جميع المستخدمين المسجلين في Firestore
-bot.hears('📋 عرض المستخدمين', async (ctx) => {
-    const usersRef = db.collection('users');
-    const snapshot = await usersRef.get();
+// ✅ عرض جميع الطلبات للأدمن
+bot.hears('📦 عرض الطلبات', async (ctx) => {
+    const snapshot = await db.collection("orders").get();
+    if (snapshot.empty) return ctx.reply("🚫 لا يوجد طلبات حالياً.");
 
-    if (snapshot.empty) return ctx.reply('❌ لا يوجد مستخدمين مسجلين.');
-
-    let userList = '📋 قائمة المستخدمين:\n';
-    snapshot.forEach(doc => {
-        let user = doc.data();
-        userList += `📧 ${user.email}\n👤 ${user.username}\n💰 ${user.wallet} جنيه\n\n`;
+    let ordersList = "📦 *الطلبات الحالية:*\n\n";
+    snapshot.forEach((doc) => {
+        const order = doc.data();
+        ordersList += `🔢 *رقم الطلب:* ${order.orderId}\n💰 *المبلغ:* ${order.paidAmount} جنيه\n📲 *رقم الشحن:* ${order.toNumber}\n📞 *رقم التواصل:* ${order.contactNumber}\n📌 *الحالة:* ${order.status}\n\n`;
     });
 
-    ctx.reply(userList);
+    ctx.reply(ordersList, { parse_mode: "Markdown" });
 });
 
-// إضافة رصيد للمستخدم عبر البريد الإلكتروني
-bot.hears('➕ إضافة رصيد', (ctx) => {
-    ctx.reply('✏️ أدخل البيانات بهذا الشكل:\n`/addcredit [البريد] [المبلغ]`', { parse_mode: 'Markdown' });
+// ✅ قفل الطلب لمنع المستخدم من إلغائه
+bot.hears('🔒 قفل الطلب', (ctx) => {
+    ctx.reply("✏️ أدخل رقم الطلب بهذا الشكل:\n`/lockorder [رقم الطلب]`", { parse_mode: "Markdown" });
 });
 
-bot.command('addcredit', async (ctx) => {
-    let [_, email, amount] = ctx.message.text.split(' ');
-    amount = parseFloat(amount);
+bot.command("lockorder", async (ctx) => {
+    const args = ctx.message.text.split(" ");
+    if (args.length !== 2) {
+        return ctx.reply("❌ استخدم الأمر بالشكل التالي: `/lockorder [رقم الطلب]`", { parse_mode: "Markdown" });
+    }
 
-    if (!email || isNaN(amount)) return ctx.reply('❌ استخدم الأمر: `/addcredit [البريد] [المبلغ]`', { parse_mode: 'Markdown' });
+    const orderId = parseInt(args[1]);
 
-    const usersRef = db.collection('users');
-    const snapshot = await usersRef.where('email', '==', email).get();
+    const orderRef = db.collection("orders").where("orderId", "==", orderId);
+    const snapshot = await orderRef.get();
 
-    if (snapshot.empty) return ctx.reply('❌ المستخدم غير موجود.');
+    if (snapshot.empty) return ctx.reply("❌ لم يتم العثور على طلب بهذا الرقم.");
 
     snapshot.forEach(async (doc) => {
-        let newBalance = doc.data().wallet + amount;
-        await doc.ref.update({ wallet: newBalance });
+        await doc.ref.update({ status: "تم التنفيذ" });
     });
 
-    ctx.reply(`✅ تم إضافة ${amount} جنيه لرصيد المستخدم: ${email}`);
+    ctx.reply(`✅ تم قفل الطلب رقم ${orderId} ولن يتمكن المستخدم من إلغائه.`);
 });
 
-// خصم رصيد من المستخدم عبر البريد الإلكتروني
-bot.hears('➖ خصم رصيد', (ctx) => {
-    ctx.reply('✏️ أدخل البيانات بهذا الشكل:\n`/deductcredit [البريد] [المبلغ]`', { parse_mode: 'Markdown' });
+// ✅ حذف طلب من قاعدة البيانات
+bot.hears('🗑️ حذف طلب', (ctx) => {
+    ctx.reply("✏️ أدخل رقم الطلب بهذا الشكل:\n`/deleteorder [رقم الطلب]`", { parse_mode: "Markdown" });
 });
 
-bot.command('deductcredit', async (ctx) => {
-    let [_, email, amount] = ctx.message.text.split(' ');
-    amount = parseFloat(amount);
+bot.command("deleteorder", async (ctx) => {
+    const args = ctx.message.text.split(" ");
+    if (args.length !== 2) {
+        return ctx.reply("❌ استخدم الأمر بالشكل التالي: `/deleteorder [رقم الطلب]`", { parse_mode: "Markdown" });
+    }
 
-    if (!email || isNaN(amount)) return ctx.reply('❌ استخدم الأمر: `/deductcredit [البريد] [المبلغ]`', { parse_mode: 'Markdown' });
+    const orderId = parseInt(args[1]);
 
-    const usersRef = db.collection('users');
-    const snapshot = await usersRef.where('email', '==', email).get();
+    const orderRef = db.collection("orders").where("orderId", "==", orderId);
+    const snapshot = await orderRef.get();
 
-    if (snapshot.empty) return ctx.reply('❌ المستخدم غير موجود.');
-
-    snapshot.forEach(async (doc) => {
-        let newBalance = doc.data().wallet - amount;
-        if (newBalance < 0) return ctx.reply('❌ لا يمكن أن يكون الرصيد أقل من صفر.');
-        
-        await doc.ref.update({ wallet: newBalance });
-    });
-
-    ctx.reply(`✅ تم خصم ${amount} جنيه من رصيد المستخدم: ${email}`);
-});
-
-// حذف مستخدم عبر البريد الإلكتروني
-bot.hears('🗑️ حذف مستخدم', (ctx) => {
-    ctx.reply('✏️ أدخل البيانات بهذا الشكل:\n`/deleteuser [البريد]`', { parse_mode: 'Markdown' });
-});
-
-bot.command('deleteuser', async (ctx) => {
-    let [_, email] = ctx.message.text.split(' ');
-
-    if (!email) return ctx.reply('❌ استخدم الأمر: `/deleteuser [البريد]`', { parse_mode: 'Markdown' });
-
-    const usersRef = db.collection('users');
-    const snapshot = await usersRef.where('email', '==', email).get();
-
-    if (snapshot.empty) return ctx.reply('❌ المستخدم غير موجود.');
+    if (snapshot.empty) return ctx.reply("❌ لم يتم العثور على طلب بهذا الرقم.");
 
     snapshot.forEach(async (doc) => {
         await doc.ref.delete();
     });
 
-    ctx.reply(`🗑️ تم حذف المستخدم بالبريد: ${email} بنجاح.`);
+    ctx.reply(`🗑️ تم حذف الطلب رقم ${orderId} بنجاح.`);
 });
 
-// تحديث بيانات المستخدمين وعرضها
-bot.hears('🔄 تحديث البيانات', async (ctx) => {
-    ctx.reply('♻️ جارٍ تحديث بيانات المستخدمين...');
-
-    const usersRef = db.collection('users');
-    const snapshot = await usersRef.get();
-
-    if (snapshot.empty) return ctx.reply('❌ لا يوجد بيانات لتحديثها.');
-
-    let userList = '📋 تحديث قائمة المستخدمين:\n';
-    snapshot.forEach(doc => {
-        let user = doc.data();
-        userList += `📧 ${user.email}\n👤 ${user.username}\n💰 ${user.wallet} جنيه\n\n`;
-    });
-
-    ctx.reply(userList);
-});
-
-// تشغيل البوت
-bot.launch();
+// ✅ تشغيل البوت
+bot.launch().then(() => console.log("🚀 البوت يعمل الآن!"));
