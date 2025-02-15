@@ -32,75 +32,82 @@ bot.hears('📋 عرض المستخدمين', async (ctx) => {
     let userList = '📋 قائمة المستخدمين:\n';
     snapshot.forEach(doc => {
         let user = doc.data();
-        userList += `🆔 ${doc.id}\n👤 ${user.username}\n📧 ${user.email}\n💰 ${user.wallet} جنيه\n\n`;
+        userList += `📧 ${user.email}\n👤 ${user.username}\n💰 ${user.wallet} جنيه\n\n`;
     });
 
     ctx.reply(userList);
 });
 
-// إضافة رصيد
+// إضافة رصيد للمستخدم عبر البريد
 bot.hears('➕ إضافة رصيد', (ctx) => {
-    ctx.reply('✏️ أدخل البيانات بهذا الشكل:\n`/addcredit [userId] [المبلغ]`', { parse_mode: 'Markdown' });
+    ctx.reply('✏️ أدخل البيانات بهذا الشكل:\n`/addcredit [البريد] [المبلغ]`', { parse_mode: 'Markdown' });
 });
 
 bot.command('addcredit', async (ctx) => {
-    let [_, userId, amount] = ctx.message.text.split(' ');
+    let [_, email, amount] = ctx.message.text.split(' ');
     amount = parseFloat(amount);
 
-    if (!userId || isNaN(amount)) return ctx.reply('❌ استخدم الأمر: `/addcredit [userId] [المبلغ]`', { parse_mode: 'Markdown' });
+    if (!email || isNaN(amount)) return ctx.reply('❌ استخدم الأمر: `/addcredit [البريد] [المبلغ]`', { parse_mode: 'Markdown' });
 
-    const userRef = db.collection('users').doc(userId);
-    const userDoc = await userRef.get();
+    const usersRef = db.collection('users');
+    const snapshot = await usersRef.where('email', '==', email).get();
 
-    if (!userDoc.exists) return ctx.reply('❌ المستخدم غير موجود.');
+    if (snapshot.empty) return ctx.reply('❌ المستخدم غير موجود.');
 
-    let newBalance = userDoc.data().wallet + amount;
-    await userRef.update({ wallet: newBalance });
+    snapshot.forEach(async (doc) => {
+        let newBalance = doc.data().wallet + amount;
+        await doc.ref.update({ wallet: newBalance });
+    });
 
-    ctx.reply(`✅ تم إضافة ${amount} جنيه لرصيد المستخدم!`);
+    ctx.reply(`✅ تم إضافة ${amount} جنيه لرصيد المستخدم: ${email}`);
 });
 
-// خصم رصيد
+// خصم رصيد من المستخدم عبر البريد
 bot.hears('➖ خصم رصيد', (ctx) => {
-    ctx.reply('✏️ أدخل البيانات بهذا الشكل:\n`/deductcredit [userId] [المبلغ]`', { parse_mode: 'Markdown' });
+    ctx.reply('✏️ أدخل البيانات بهذا الشكل:\n`/deductcredit [البريد] [المبلغ]`', { parse_mode: 'Markdown' });
 });
 
 bot.command('deductcredit', async (ctx) => {
-    let [_, userId, amount] = ctx.message.text.split(' ');
+    let [_, email, amount] = ctx.message.text.split(' ');
     amount = parseFloat(amount);
 
-    if (!userId || isNaN(amount)) return ctx.reply('❌ استخدم الأمر: `/deductcredit [userId] [المبلغ]`', { parse_mode: 'Markdown' });
+    if (!email || isNaN(amount)) return ctx.reply('❌ استخدم الأمر: `/deductcredit [البريد] [المبلغ]`', { parse_mode: 'Markdown' });
 
-    const userRef = db.collection('users').doc(userId);
-    const userDoc = await userRef.get();
+    const usersRef = db.collection('users');
+    const snapshot = await usersRef.where('email', '==', email).get();
 
-    if (!userDoc.exists) return ctx.reply('❌ المستخدم غير موجود.');
+    if (snapshot.empty) return ctx.reply('❌ المستخدم غير موجود.');
 
-    let newBalance = userDoc.data().wallet - amount;
-    if (newBalance < 0) return ctx.reply('❌ لا يمكن أن يكون الرصيد أقل من صفر.');
+    snapshot.forEach(async (doc) => {
+        let newBalance = doc.data().wallet - amount;
+        if (newBalance < 0) return ctx.reply('❌ لا يمكن أن يكون الرصيد أقل من صفر.');
+        
+        await doc.ref.update({ wallet: newBalance });
+    });
 
-    await userRef.update({ wallet: newBalance });
-
-    ctx.reply(`✅ تم خصم ${amount} جنيه من رصيد المستخدم!`);
+    ctx.reply(`✅ تم خصم ${amount} جنيه من رصيد المستخدم: ${email}`);
 });
 
-// حذف مستخدم
+// حذف مستخدم عبر البريد
 bot.hears('🗑️ حذف مستخدم', (ctx) => {
-    ctx.reply('✏️ أدخل البيانات بهذا الشكل:\n`/deleteuser [userId]`', { parse_mode: 'Markdown' });
+    ctx.reply('✏️ أدخل البيانات بهذا الشكل:\n`/deleteuser [البريد]`', { parse_mode: 'Markdown' });
 });
 
 bot.command('deleteuser', async (ctx) => {
-    let [_, userId] = ctx.message.text.split(' ');
+    let [_, email] = ctx.message.text.split(' ');
 
-    if (!userId) return ctx.reply('❌ استخدم الأمر: `/deleteuser [userId]`', { parse_mode: 'Markdown' });
+    if (!email) return ctx.reply('❌ استخدم الأمر: `/deleteuser [البريد]`', { parse_mode: 'Markdown' });
 
-    const userRef = db.collection('users').doc(userId);
-    const userDoc = await userRef.get();
+    const usersRef = db.collection('users');
+    const snapshot = await usersRef.where('email', '==', email).get();
 
-    if (!userDoc.exists) return ctx.reply('❌ المستخدم غير موجود.');
+    if (snapshot.empty) return ctx.reply('❌ المستخدم غير موجود.');
 
-    await userRef.delete();
-    ctx.reply(`🗑️ تم حذف المستخدم ID: ${userId} بنجاح.`);
+    snapshot.forEach(async (doc) => {
+        await doc.ref.delete();
+    });
+
+    ctx.reply(`🗑️ تم حذف المستخدم بالبريد: ${email} بنجاح.`);
 });
 
 // تحديث البيانات
@@ -112,7 +119,7 @@ bot.hears('🔄 تحديث البيانات', (ctx) => {
 
         snapshot.forEach(doc => {
             const user = doc.data();
-            ctx.reply(`🆔 ${doc.id}\n👤 ${user.username}\n📧 ${user.email}\n💰 ${user.wallet} جنيه`);
+            ctx.reply(`📧 ${user.email}\n👤 ${user.username}\n💰 ${user.wallet} جنيه`);
         });
     });
 });
