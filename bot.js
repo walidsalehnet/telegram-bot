@@ -22,7 +22,7 @@ bot.start((ctx) => {
     );
 });
 
-// عرض جميع المستخدمين
+// عرض جميع المستخدمين المسجلين في Firebase Firestore
 bot.hears('📋 عرض المستخدمين', async (ctx) => {
     const usersRef = db.collection('users');
     const snapshot = await usersRef.get();
@@ -38,7 +38,7 @@ bot.hears('📋 عرض المستخدمين', async (ctx) => {
     ctx.reply(userList);
 });
 
-// إضافة رصيد للمستخدم عبر البريد
+// إضافة رصيد للمستخدم عبر البريد الإلكتروني
 bot.hears('➕ إضافة رصيد', (ctx) => {
     ctx.reply('✏️ أدخل البيانات بهذا الشكل:\n`/addcredit [البريد] [المبلغ]`', { parse_mode: 'Markdown' });
 });
@@ -62,7 +62,7 @@ bot.command('addcredit', async (ctx) => {
     ctx.reply(`✅ تم إضافة ${amount} جنيه لرصيد المستخدم: ${email}`);
 });
 
-// خصم رصيد من المستخدم عبر البريد
+// خصم رصيد من المستخدم عبر البريد الإلكتروني
 bot.hears('➖ خصم رصيد', (ctx) => {
     ctx.reply('✏️ أدخل البيانات بهذا الشكل:\n`/deductcredit [البريد] [المبلغ]`', { parse_mode: 'Markdown' });
 });
@@ -88,7 +88,7 @@ bot.command('deductcredit', async (ctx) => {
     ctx.reply(`✅ تم خصم ${amount} جنيه من رصيد المستخدم: ${email}`);
 });
 
-// حذف مستخدم عبر البريد
+// حذف مستخدم عبر البريد الإلكتروني
 bot.hears('🗑️ حذف مستخدم', (ctx) => {
     ctx.reply('✏️ أدخل البيانات بهذا الشكل:\n`/deleteuser [البريد]`', { parse_mode: 'Markdown' });
 });
@@ -110,18 +110,22 @@ bot.command('deleteuser', async (ctx) => {
     ctx.reply(`🗑️ تم حذف المستخدم بالبريد: ${email} بنجاح.`);
 });
 
-// تحديث البيانات
-bot.hears('🔄 تحديث البيانات', (ctx) => {
+// تحديث بيانات المستخدمين وعرضها
+bot.hears('🔄 تحديث البيانات', async (ctx) => {
     ctx.reply('♻️ جارٍ تحديث بيانات المستخدمين...');
 
-    db.collection('users').get().then(snapshot => {
-        if (snapshot.empty) return ctx.reply('❌ لا يوجد بيانات لتحديثها.');
+    const usersRef = db.collection('users');
+    const snapshot = await usersRef.get();
 
-        snapshot.forEach(doc => {
-            const user = doc.data();
-            ctx.reply(`📧 ${user.email}\n👤 ${user.username}\n💰 ${user.wallet} جنيه`);
-        });
+    if (snapshot.empty) return ctx.reply('❌ لا يوجد بيانات لتحديثها.');
+
+    let userList = '📋 تحديث قائمة المستخدمين:\n';
+    snapshot.forEach(doc => {
+        let user = doc.data();
+        userList += `📧 ${user.email}\n👤 ${user.username}\n💰 ${user.wallet} جنيه\n\n`;
     });
+
+    ctx.reply(userList);
 });
 
 // تشغيل البوت
