@@ -7,7 +7,7 @@ admin.initializeApp({
 });
 
 const db = admin.firestore();
-const bot = new Telegraf("YOUR_BOT_TOKEN"); // 🔹 استبدل بالتوكن الخاص بك
+const bot = new Telegraf("YOUR_BOT_TOKEN"); // 🔹 استبدل بـ توكن البوت الخاص بك
 
 // ✅ قائمة الأوامر كأزرار
 bot.start((ctx) => {
@@ -21,6 +21,94 @@ bot.start((ctx) => {
         .resize()
         .oneTime()
     );
+});
+
+// ✅ عرض جميع المستخدمين
+bot.hears('📋 عرض المستخدمين', async (ctx) => {
+    const snapshot = await db.collection("users").get();
+    if (snapshot.empty) return ctx.reply("🚫 لا يوجد مستخدمون حالياً.");
+
+    let usersList = "👥 *قائمة المستخدمين:*\n\n";
+    snapshot.forEach((doc) => {
+        const user = doc.data();
+        usersList += `🆔 *ID:* ${doc.id}\n👤 *الاسم:* ${user.name || 'غير متوفر'}\n💰 *الرصيد:* ${user.wallet || 0} جنيه\n\n`;
+    });
+
+    ctx.reply(usersList, { parse_mode: "Markdown" });
+});
+
+// ✅ إضافة رصيد إلى مستخدم
+bot.hears('➕ إضافة رصيد', (ctx) => {
+    ctx.reply("✏️ استخدم الأمر:\n`/addcredit [ID المستخدم] [المبلغ]`", { parse_mode: "Markdown" });
+});
+
+bot.command("addcredit", async (ctx) => {
+    const args = ctx.message.text.split(" ");
+    if (args.length !== 3) {
+        return ctx.reply("❌ استخدم الأمر بالشكل التالي: `/addcredit [ID المستخدم] [المبلغ]`", { parse_mode: "Markdown" });
+    }
+
+    const userId = args[1];
+    const amount = parseFloat(args[2]);
+
+    const userRef = db.collection("users").doc(userId);
+    const userDoc = await userRef.get();
+
+    if (!userDoc.exists) return ctx.reply("❌ المستخدم غير موجود.");
+
+    let currentBalance = userDoc.data().wallet || 0;
+    await userRef.update({ wallet: currentBalance + amount });
+
+    ctx.reply(`✅ تم إضافة ${amount} جنيه إلى رصيد المستخدم.`);
+});
+
+// ✅ خصم رصيد من مستخدم
+bot.hears('➖ خصم رصيد', (ctx) => {
+    ctx.reply("✏️ استخدم الأمر:\n`/deductcredit [ID المستخدم] [المبلغ]`", { parse_mode: "Markdown" });
+});
+
+bot.command("deductcredit", async (ctx) => {
+    const args = ctx.message.text.split(" ");
+    if (args.length !== 3) {
+        return ctx.reply("❌ استخدم الأمر بالشكل التالي: `/deductcredit [ID المستخدم] [المبلغ]`", { parse_mode: "Markdown" });
+    }
+
+    const userId = args[1];
+    const amount = parseFloat(args[2]);
+
+    const userRef = db.collection("users").doc(userId);
+    const userDoc = await userRef.get();
+
+    if (!userDoc.exists) return ctx.reply("❌ المستخدم غير موجود.");
+
+    let currentBalance = userDoc.data().wallet || 0;
+    if (currentBalance < amount) return ctx.reply("❌ الرصيد غير كافٍ.");
+
+    await userRef.update({ wallet: currentBalance - amount });
+
+    ctx.reply(`✅ تم خصم ${amount} جنيه من رصيد المستخدم.`);
+});
+
+// ✅ حذف مستخدم
+bot.hears('🗑️ حذف مستخدم', (ctx) => {
+    ctx.reply("✏️ استخدم الأمر:\n`/deleteuser [ID المستخدم]`", { parse_mode: "Markdown" });
+});
+
+bot.command("deleteuser", async (ctx) => {
+    const args = ctx.message.text.split(" ");
+    if (args.length !== 2) {
+        return ctx.reply("❌ استخدم الأمر بالشكل التالي: `/deleteuser [ID المستخدم]`", { parse_mode: "Markdown" });
+    }
+
+    const userId = args[1];
+
+    await db.collection("users").doc(userId).delete();
+    ctx.reply(`🗑️ تم حذف المستخدم ID: ${userId} بنجاح.`);
+});
+
+// ✅ تحديث بيانات المستخدمين
+bot.hears('🔄 تحديث البيانات', async (ctx) => {
+    ctx.reply("🔄 جارِ تحديث بيانات المستخدمين...");
 });
 
 // ✅ عرض جميع الطلبات للأدمن
