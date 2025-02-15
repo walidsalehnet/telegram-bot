@@ -15,14 +15,15 @@ bot.start((ctx) => {
         '👋 أهلا بك في بوت الإدارة! اختر من القائمة:',
         Markup.keyboard([
             ['📋 عرض المستخدمين', '➕ إضافة رصيد', '➖ خصم رصيد'],
-            ['🗑️ حذف مستخدم', '🔄 تحديث البيانات']
+            ['🗑️ حذف مستخدم', '🔄 تحديث البيانات'],
+            ['✅ تنفيذ طلب']
         ])
         .resize()
         .oneTime()
     );
 });
 
-// عرض جميع المستخدمين المسجلين في Firestore
+// عرض جميع المستخدمين
 bot.hears('📋 عرض المستخدمين', async (ctx) => {
     const usersRef = db.collection('users');
     const snapshot = await usersRef.get();
@@ -126,6 +127,28 @@ bot.hears('🔄 تحديث البيانات', async (ctx) => {
     });
 
     ctx.reply(userList);
+});
+
+// تنفيذ الطلب وتحديث حالته
+bot.hears('✅ تنفيذ طلب', (ctx) => {
+    ctx.reply('✏️ أدخل رقم الطلب الذي تم تنفيذه باستخدام الأمر:\n`/completeorder [رقم الطلب]`', { parse_mode: 'Markdown' });
+});
+
+bot.command('completeorder', async (ctx) => {
+    let [_, orderId] = ctx.message.text.split(' ');
+
+    if (!orderId) return ctx.reply('❌ استخدم الأمر بالشكل التالي: `/completeorder [رقم الطلب]`', { parse_mode: 'Markdown' });
+
+    const ordersRef = db.collection('orders');
+    const snapshot = await ordersRef.where('orderId', '==', parseInt(orderId)).get();
+
+    if (snapshot.empty) return ctx.reply('❌ الطلب غير موجود.');
+
+    snapshot.forEach(async (doc) => {
+        await doc.ref.update({ status: "تم التنفيذ" });
+    });
+
+    ctx.reply(`✅ تم تنفيذ الطلب رقم ${orderId} ولن يتمكن المستخدم من إلغائه بعد الآن.`);
 });
 
 // تشغيل البوت
