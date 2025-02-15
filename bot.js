@@ -22,12 +22,12 @@ bot.start((ctx) => {
     );
 });
 
-// عرض جميع المستخدمين المسجلين في Firebase Firestore
+// عرض جميع المستخدمين المسجلين في Firestore
 bot.hears('📋 عرض المستخدمين', async (ctx) => {
     const usersRef = db.collection('users');
     const snapshot = await usersRef.get();
 
-    if (snapshot.empty) return ctx.reply('❌ لا يوجد مستخدمين.');
+    if (snapshot.empty) return ctx.reply('❌ لا يوجد مستخدمين مسجلين.');
 
     let userList = '📋 قائمة المستخدمين:\n';
     snapshot.forEach(doc => {
