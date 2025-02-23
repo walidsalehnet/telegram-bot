@@ -9,147 +9,157 @@ admin.initializeApp({
 const db = admin.firestore();
 const bot = new Telegraf("7834569515:AAHGBtlyJ-clDjc_jv2j9TDudV0K0AlRjeo"); // استبدل بالتوكن الخاص بك
 
-// قائمة الأوامر كأزرار
+// ✅ قائمة الأوامر كأزرار
 bot.start((ctx) => {
     ctx.reply(
         '👋 أهلا بك في بوت الإدارة! اختر من القائمة:',
         Markup.keyboard([
             ['📋 عرض المستخدمين', '➕ إضافة رصيد', '➖ خصم رصيد'],
             ['🗑️ حذف مستخدم', '🔄 تحديث البيانات'],
-            ['✅ تنفيذ طلب']
+            ['✅ تنفيذ طلب', '➕ إضافة كارت']
         ])
         .resize()
         .oneTime()
     );
 });
 
-// عرض جميع المستخدمين
+// ✅ عرض المستخدمين
 bot.hears('📋 عرض المستخدمين', async (ctx) => {
     const usersRef = db.collection('users');
     const snapshot = await usersRef.get();
 
-    if (snapshot.empty) return ctx.reply('❌ لا يوجد مستخدمين مسجلين.');
+    if (snapshot.empty) {
+        return ctx.reply('❌ لا يوجد مستخدمون حتى الآن.');
+    }
 
-    let userList = '📋 قائمة المستخدمين:\n';
+    let userList = '📌 قائمة المستخدمين:\n';
     snapshot.forEach(doc => {
-        let user = doc.data();
-        userList += `📧 ${user.email}\n👤 ${user.username}\n💰 ${user.wallet} جنيه\n\n`;
+        const userData = doc.data();
+        userList += `👤 ${userData.email} - 💰 ${userData.wallet} جنيه\n`;
     });
 
     ctx.reply(userList);
 });
 
-// إضافة رصيد للمستخدم عبر البريد الإلكتروني
+// ✅ إضافة رصيد للمستخدم
 bot.hears('➕ إضافة رصيد', (ctx) => {
-    ctx.reply('✏️ أدخل البيانات بهذا الشكل:\n`/addcredit [البريد] [المبلغ]`', { parse_mode: 'Markdown' });
+    ctx.reply('✏️ استخدم الأمر التالي لإضافة رصيد:\n`/addrased [البريد الإلكتروني] [المبلغ]`', { parse_mode: 'Markdown' });
 });
 
-bot.command('addcredit', async (ctx) => {
+bot.command('addrased', async (ctx) => {
     let [_, email, amount] = ctx.message.text.split(' ');
     amount = parseFloat(amount);
 
-    if (!email || isNaN(amount)) return ctx.reply('❌ استخدم الأمر: `/addcredit [البريد] [المبلغ]`', { parse_mode: 'Markdown' });
+    if (!email || isNaN(amount)) {
+        return ctx.reply('❌ استخدم الأمر بالشكل الصحيح:\n`/addrased [البريد الإلكتروني] [المبلغ]`', { parse_mode: 'Markdown' });
+    }
 
-    const usersRef = db.collection('users');
-    const snapshot = await usersRef.where('email', '==', email).get();
+    const userRef = db.collection('users').where('email', '==', email);
+    const snapshot = await userRef.get();
 
-    if (snapshot.empty) return ctx.reply('❌ المستخدم غير موجود.');
+    if (snapshot.empty) {
+        return ctx.reply('❌ المستخدم غير موجود.');
+    }
 
     snapshot.forEach(async (doc) => {
-        let newBalance = doc.data().wallet + amount;
-        await doc.ref.update({ wallet: newBalance });
-    });
+        let currentBalance = doc.data().wallet || 0;
+        await doc.ref.update({ wallet: currentBalance + amount });
 
-    ctx.reply(`✅ تم إضافة ${amount} جنيه لرصيد المستخدم: ${email}`);
+        ctx.reply(`✅ تم إضافة ${amount} جنيه إلى رصيد ${email}.`);
+    });
 });
 
-// خصم رصيد من المستخدم عبر البريد الإلكتروني
+// ✅ خصم رصيد من المستخدم
 bot.hears('➖ خصم رصيد', (ctx) => {
-    ctx.reply('✏️ أدخل البيانات بهذا الشكل:\n`/deductcredit [البريد] [المبلغ]`', { parse_mode: 'Markdown' });
+    ctx.reply('✏️ استخدم الأمر التالي لخصم رصيد:\n`/subrased [البريد الإلكتروني] [المبلغ]`', { parse_mode: 'Markdown' });
 });
 
-bot.command('deductcredit', async (ctx) => {
+bot.command('subrased', async (ctx) => {
     let [_, email, amount] = ctx.message.text.split(' ');
     amount = parseFloat(amount);
 
-    if (!email || isNaN(amount)) return ctx.reply('❌ استخدم الأمر: `/deductcredit [البريد] [المبلغ]`', { parse_mode: 'Markdown' });
+    if (!email || isNaN(amount)) {
+        return ctx.reply('❌ استخدم الأمر بالشكل الصحيح:\n`/subrased [البريد الإلكتروني] [المبلغ]`', { parse_mode: 'Markdown' });
+    }
 
-    const usersRef = db.collection('users');
-    const snapshot = await usersRef.where('email', '==', email).get();
+    const userRef = db.collection('users').where('email', '==', email);
+    const snapshot = await userRef.get();
 
-    if (snapshot.empty) return ctx.reply('❌ المستخدم غير موجود.');
+    if (snapshot.empty) {
+        return ctx.reply('❌ المستخدم غير موجود.');
+    }
 
     snapshot.forEach(async (doc) => {
-        let newBalance = doc.data().wallet - amount;
-        if (newBalance < 0) return ctx.reply('❌ لا يمكن أن يكون الرصيد أقل من صفر.');
-        
-        await doc.ref.update({ wallet: newBalance });
+        let currentBalance = doc.data().wallet || 0;
+
+        if (currentBalance < amount) {
+            return ctx.reply('❌ الرصيد غير كافٍ.');
+        }
+
+        await doc.ref.update({ wallet: currentBalance - amount });
+
+        ctx.reply(`✅ تم خصم ${amount} جنيه من رصيد ${email}.`);
     });
-
-    ctx.reply(`✅ تم خصم ${amount} جنيه من رصيد المستخدم: ${email}`);
 });
 
-// حذف مستخدم عبر البريد الإلكتروني
+// ✅ حذف مستخدم
 bot.hears('🗑️ حذف مستخدم', (ctx) => {
-    ctx.reply('✏️ أدخل البيانات بهذا الشكل:\n`/deleteuser [البريد]`', { parse_mode: 'Markdown' });
+    ctx.reply('✏️ استخدم الأمر التالي لحذف مستخدم:\n`/deluser [البريد الإلكتروني]`', { parse_mode: 'Markdown' });
 });
 
-bot.command('deleteuser', async (ctx) => {
+bot.command('deluser', async (ctx) => {
     let [_, email] = ctx.message.text.split(' ');
 
-    if (!email) return ctx.reply('❌ استخدم الأمر: `/deleteuser [البريد]`', { parse_mode: 'Markdown' });
+    if (!email) {
+        return ctx.reply('❌ استخدم الأمر بالشكل الصحيح:\n`/deluser [البريد الإلكتروني]`', { parse_mode: 'Markdown' });
+    }
 
-    const usersRef = db.collection('users');
-    const snapshot = await usersRef.where('email', '==', email).get();
+    const userRef = db.collection('users').where('email', '==', email);
+    const snapshot = await userRef.get();
 
-    if (snapshot.empty) return ctx.reply('❌ المستخدم غير موجود.');
+    if (snapshot.empty) {
+        return ctx.reply('❌ المستخدم غير موجود.');
+    }
 
     snapshot.forEach(async (doc) => {
         await doc.ref.delete();
+        ctx.reply(`✅ تم حذف المستخدم: ${email}`);
     });
-
-    ctx.reply(`🗑️ تم حذف المستخدم بالبريد: ${email} بنجاح.`);
 });
 
-// تحديث بيانات المستخدمين وعرضها
-bot.hears('🔄 تحديث البيانات', async (ctx) => {
-    ctx.reply('♻️ جارٍ تحديث بيانات المستخدمين...');
-
-    const usersRef = db.collection('users');
-    const snapshot = await usersRef.get();
-
-    if (snapshot.empty) return ctx.reply('❌ لا يوجد بيانات لتحديثها.');
-
-    let userList = '📋 تحديث قائمة المستخدمين:\n';
-    snapshot.forEach(doc => {
-        let user = doc.data();
-        userList += `📧 ${user.email}\n👤 ${user.username}\n💰 ${user.wallet} جنيه\n\n`;
-    });
-
-    ctx.reply(userList);
+// ✅ إضافة كارت جديد لمتجر الكروت
+bot.hears('➕ إضافة كارت', (ctx) => {
+    ctx.reply('✏️ أدخل بيانات الكارت بهذا الشكل:\n`/addcard [كود الكارت] [عدد الوحدات]`', { parse_mode: 'Markdown' });
 });
 
-// تنفيذ الطلب وتحديث حالته
+bot.command('addcard', async (ctx) => {
+    let [_, cardNumber, units] = ctx.message.text.split(' ');
+    units = parseInt(units);
+
+    if (!cardNumber || isNaN(units)) {
+        return ctx.reply('❌ استخدم الأمر بالشكل الصحيح:\n`/addcard [كود الكارت] [عدد الوحدات]`', { parse_mode: 'Markdown' });
+    }
+
+    const addedTime = new Date().getTime();
+
+    await db.collection('cards').add({
+        number: cardNumber,
+        units: units,
+        addedTime: addedTime
+    });
+
+    ctx.reply(`✅ تم إضافة كارت جديد بنجاح:\n🔢 *رقم الكارت:* ${cardNumber}\n⚡ *عدد الوحدات:* ${units} وحدة`, { parse_mode: 'Markdown' });
+});
+
+// ✅ تنفيذ الطلبات
 bot.hears('✅ تنفيذ طلب', (ctx) => {
-    ctx.reply('✏️ أدخل رقم الطلب الذي تم تنفيذه باستخدام الأمر:\n`/completeorder [رقم الطلب]`', { parse_mode: 'Markdown' });
+    ctx.reply('🚀 ميزة تنفيذ الطلبات قيد التطوير...');
 });
 
-bot.command('completeorder', async (ctx) => {
-    let [_, orderId] = ctx.message.text.split(' ');
-
-    if (!orderId) return ctx.reply('❌ استخدم الأمر بالشكل التالي: `/completeorder [رقم الطلب]`', { parse_mode: 'Markdown' });
-
-    const ordersRef = db.collection('orders');
-    const snapshot = await ordersRef.where('orderId', '==', parseInt(orderId)).get();
-
-    if (snapshot.empty) return ctx.reply('❌ الطلب غير موجود.');
-
-    snapshot.forEach(async (doc) => {
-        await doc.ref.update({ status: "تم التنفيذ" });
-    });
-
-    ctx.reply(`✅ تم تنفيذ الطلب رقم ${orderId} ولن يتمكن المستخدم من إلغائه بعد الآن.`);
+// ✅ تحديث البيانات
+bot.hears('🔄 تحديث البيانات', (ctx) => {
+    ctx.reply('🔄 يتم تحديث البيانات الآن...');
 });
 
-// تشغيل البوت
+// ✅ تشغيل البوت
 bot.launch();
