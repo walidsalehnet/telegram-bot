@@ -7,7 +7,7 @@ admin.initializeApp({
 });
 
 const db = admin.firestore();
-const bot = new Telegraf("YOUR_BOT_TOKEN"); // استبدل بالتوكن الخاص بك
+const bot = new Telegraf("7834569515:AAHGBtlyJ-clDjc_jv2j9TDudV0K0AlRjeo"); // استبدل بالتوكن الخاص بك
 
 // ✅ قائمة الأوامر المحدثة
 bot.start((ctx) => {
