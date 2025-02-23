@@ -1,29 +1,30 @@
 const { Telegraf, Markup } = require('telegraf');
 const admin = require('firebase-admin');
 
-// تحميل بيانات Firebase
+// ✅ تحميل بيانات Firebase
 admin.initializeApp({
     credential: admin.credential.cert(JSON.parse(process.env.FIREBASE_CREDENTIALS))
 });
 
 const db = admin.firestore();
-const bot = new Telegraf("7834569515:AAHGBtlyJ-clDjc_jv2j9TDudV0K0AlRjeo"); // استبدل بالتوكن الخاص بك
+const bot = new Telegraf("YOUR_BOT_TOKEN"); // استبدل بالتوكن الخاص بك
 
-// ✅ قائمة الأوامر كأزرار
+// ✅ قائمة الأوامر المحدثة
 bot.start((ctx) => {
     ctx.reply(
         '👋 أهلا بك في بوت الإدارة! اختر من القائمة:',
         Markup.keyboard([
             ['📋 عرض المستخدمين', '➕ إضافة رصيد', '➖ خصم رصيد'],
             ['🗑️ حذف مستخدم', '🔄 تحديث البيانات'],
-            ['✅ تنفيذ طلب', '➕ إضافة كارت']
+            ['✅ تنفيذ طلب', '➕ إضافة كارت'],
+            ['➕ إنشاء قسيمة', '❌ حذف قسيمة']
         ])
         .resize()
         .oneTime()
     );
 });
 
-// ✅ عرض المستخدمين
+// ✅ عرض المستخدمين المسجلين
 bot.hears('📋 عرض المستخدمين', async (ctx) => {
     const usersRef = db.collection('users');
     const snapshot = await usersRef.get();
@@ -127,38 +128,44 @@ bot.command('deluser', async (ctx) => {
     });
 });
 
-// ✅ إضافة كارت جديد لمتجر الكروت
-bot.hears('➕ إضافة كارت', (ctx) => {
-    ctx.reply('✏️ أدخل بيانات الكارت بهذا الشكل:\n`/addcard [كود الكارت] [عدد الوحدات]`', { parse_mode: 'Markdown' });
+// ✅ إنشاء قسيمة جديدة
+bot.hears('➕ إنشاء قسيمة', (ctx) => {
+    ctx.reply('✏️ أدخل بيانات القسيمة بهذا الشكل:\n`/addcode [البريد الإلكتروني] [كود القسيمة]`', { parse_mode: 'Markdown' });
 });
 
-bot.command('addcard', async (ctx) => {
-    let [_, cardNumber, units] = ctx.message.text.split(' ');
-    units = parseInt(units);
+bot.command('addcode', async (ctx) => {
+    let [_, email, code] = ctx.message.text.split(' ');
 
-    if (!cardNumber || isNaN(units)) {
-        return ctx.reply('❌ استخدم الأمر بالشكل الصحيح:\n`/addcard [كود الكارت] [عدد الوحدات]`', { parse_mode: 'Markdown' });
+    if (!email || !code) {
+        return ctx.reply('❌ استخدم الأمر بالشكل الصحيح:\n`/addcode [البريد الإلكتروني] [كود القسيمة]`', { parse_mode: 'Markdown' });
     }
 
-    const addedTime = new Date().getTime();
+    await db.collection('trader_codes').doc(email).set({ code: code });
 
-    await db.collection('cards').add({
-        number: cardNumber,
-        units: units,
-        addedTime: addedTime
-    });
-
-    ctx.reply(`✅ تم إضافة كارت جديد بنجاح:\n🔢 *رقم الكارت:* ${cardNumber}\n⚡ *عدد الوحدات:* ${units} وحدة`, { parse_mode: 'Markdown' });
+    ctx.reply(`✅ تم إنشاء القسيمة بنجاح للمستخدم: ${email}\n🔐 كود القسيمة: *${code}*`, { parse_mode: 'Markdown' });
 });
 
-// ✅ تنفيذ الطلبات
-bot.hears('✅ تنفيذ طلب', (ctx) => {
-    ctx.reply('🚀 ميزة تنفيذ الطلبات قيد التطوير...');
+// ✅ حذف قسيمة مستخدم
+bot.hears('❌ حذف قسيمة', (ctx) => {
+    ctx.reply('✏️ أدخل البريد الإلكتروني لحذف القسيمة:\n`/delcode [البريد الإلكتروني]`', { parse_mode: 'Markdown' });
 });
 
-// ✅ تحديث البيانات
-bot.hears('🔄 تحديث البيانات', (ctx) => {
-    ctx.reply('🔄 يتم تحديث البيانات الآن...');
+bot.command('delcode', async (ctx) => {
+    let [_, email] = ctx.message.text.split(' ');
+
+    if (!email) {
+        return ctx.reply('❌ استخدم الأمر بالشكل الصحيح:\n`/delcode [البريد الإلكتروني]`', { parse_mode: 'Markdown' });
+    }
+
+    const codeRef = db.collection('trader_codes').doc(email);
+    const doc = await codeRef.get();
+
+    if (!doc.exists) {
+        return ctx.reply('❌ لا توجد قسيمة لهذا المستخدم.');
+    }
+
+    await codeRef.delete();
+    ctx.reply(`✅ تم حذف القسيمة للمستخدم: ${email}`);
 });
 
 // ✅ تشغيل البوت
