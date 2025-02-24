@@ -79,16 +79,27 @@ bot.command('executeorder', async (ctx) => {
         return ctx.reply('❌ استخدم الأمر بالشكل الصحيح:\n`/executeorder [رقم الطلب]`', { parse_mode: 'Markdown' });
     }
 
-    const orderRef = db.collection('orders').doc(orderId);
-    const doc = await orderRef.get();
+    orderId = orderId.trim(); // إزالة أي مسافات زائدة
 
-    if (!doc.exists) {
-        return ctx.reply('❌ الطلب غير موجود.');
+    // المجموعات التي نريد البحث فيها
+    const collections = ["orders", "recharges", "withdrawals"];
+    let orderFound = false;
+
+    for (let collection of collections) {
+        const orderRef = db.collection(collection).doc(orderId);
+        const doc = await orderRef.get();
+
+        if (doc.exists) {
+            await orderRef.update({ status: "تم التنفيذ" });
+            ctx.reply(`✅ تم تنفيذ الطلب بنجاح في *${collection}*\n🔢 رقم الطلب: *${orderId}*`, { parse_mode: 'Markdown' });
+            orderFound = true;
+            break; // توقف عند العثور على الطلب
+        }
     }
 
-    await orderRef.update({ status: "تم التنفيذ" });
-
-    ctx.reply(`✅ تم تنفيذ الطلب بنجاح!\n🔢 رقم الطلب: *${orderId}*`, { parse_mode: 'Markdown' });
+    if (!orderFound) {
+        ctx.reply('❌ الطلب غير موجود في أي من المجموعات.');
+    }
 });
 
 // ✅ إضافة رصيد للمستخدم
