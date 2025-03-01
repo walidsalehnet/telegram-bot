@@ -9,20 +9,52 @@ admin.initializeApp({
 const db = admin.firestore();
 const bot = new Telegraf("7834569515:AAHGBtlyJ-clDjc_jv2j9TDudV0K0AlRjeo"); // 🔥 استخدم التوكن الخاص بك
 
-// ✅ قائمة الأوامر المحدثة
-bot.start((ctx) => {
-    ctx.reply(
-        '👋 أهلا بك في بوت الإدارة! اختر من القائمة:',
-        Markup.keyboard([
-            ['📋 عرض المستخدمين', '➕ إضافة رصيد', '➖ خصم رصيد'],
-            ['🗑️ حذف مستخدم', '🔄 تحديث البيانات'],
-            ['✅ تنفيذ طلب', '➕ إضافة كارت'],
-            ['➕ إنشاء قسيمة', '❌ حذف قسيمة']
-        ])
-        .resize()
-        .oneTime()
-    );
+// ✅ قائمة المسؤولين (Admins)
+let admins = new Set(); 
+
+// ✅ تحميل الإداريين من Firebase عند تشغيل البوت
+async function loadAdmins() {
+    const snapshot = await db.collection('admins').get();
+    snapshot.forEach(doc => admins.add(doc.id));
+}
+loadAdmins();
+
+// ✅ دالة للتحقق مما إذا كان المستخدم مسؤولًا
+function isAdmin(userId) {
+    return admins.has(userId.toString());
+}
+
+// ✅ أمر لإضافة إداري جديد
+bot.command('addadmin', async (ctx) => {
+    const senderId = ctx.from.id.toString();
+    
+    if (!isAdmin(senderId)) {
+        return ctx.reply('❌ ليس لديك صلاحية لإضافة إداريين.');
+    }
+
+    let [_, newAdminId] = ctx.message.text.split(' ');
+
+    if (!newAdminId) {
+        return ctx.reply('❌ استخدم الأمر بالشكل الصحيح:\n`/addadmin [ID الحساب]`', { parse_mode: 'Markdown' });
+    }
+
+    newAdminId = newAdminId.trim();
+
+    await db.collection('admins').doc(newAdminId).set({ addedBy: senderId });
+    admins.add(newAdminId);
+
+    ctx.reply(`✅ تم إضافة المستخدم ${newAdminId} كإداري جديد.`);
 });
+
+// ✅ التحقق قبل تنفيذ الأوامر الإدارية
+bot.hears(['📋 عرض المستخدمين', '➕ إضافة رصيد', '➖ خصم رصيد', '🗑️ حذف مستخدم', '🔄 تحديث البيانات', '✅ تنفيذ طلب', '➕ إضافة كارت', '➕ إنشاء قسيمة', '❌ حذف قسيمة'], (ctx) => {
+    if (!isAdmin(ctx.from.id)) {
+        return ctx.reply('❌ ليس لديك صلاحية لاستخدام هذا الأمر.');
+    }
+    ctx.updateType = 'command'; // للسماح بتشغيل الأوامر الأخرى
+    bot.handleUpdate(ctx.update);
+});
+
 
 // ✅ إضافة كارت جديد
 bot.hears('➕ إضافة كارت', (ctx) => {
