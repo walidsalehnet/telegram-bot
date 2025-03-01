@@ -18,6 +18,32 @@ async function loadAdmins() {
     snapshot.forEach(doc => admins.add(doc.id));
 }
 loadAdmins();
+async function loadAdmins() {
+    const snapshot = await db.collection('admins').get();
+    snapshot.forEach(doc => admins.add(doc.id));
+    console.log("🚀 الإداريون المحملون:", admins); // ✅ تحقق من تحميل الإداريين
+}
+async function createAdminsCollection() {
+    const adminsRef = db.collection('admins');
+    const snapshot = await adminsRef.get();
+
+    if (snapshot.empty) {
+        // ✅ إضافة إداري افتراضي (أدخل ID حسابك هنا)
+        const defaultAdminId = "6798744902"; // 🔥 استبدل هذا بـ ID حسابك على تيليجرام
+
+        await adminsRef.doc(defaultAdminId).set({
+            addedBy: "system",
+            createdAt: admin.firestore.FieldValue.serverTimestamp()
+        });
+
+        console.log(`✅ تم إنشاء مجموعة 'admins' وإضافة الإداري الأول (${defaultAdminId})`);
+    } else {
+        console.log("✅ مجموعة 'admins' موجودة بالفعل.");
+    }
+}
+
+// 🚀 استدعاء الدالة عند تشغيل البوت
+createAdminsCollection();
 
 // ✅ دالة للتحقق مما إذا كان المستخدم مسؤولًا
 function isAdmin(userId) {
