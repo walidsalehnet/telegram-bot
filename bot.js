@@ -7,7 +7,7 @@ admin.initializeApp({
 });
 
 const db = admin.firestore();
-const bot = new Telegraf("7834569515:AAHGBtlyJ-clDjc_jv2j9TDudV0K0AlRjeo"); // 🔥 استخدم التوكن الخاص بك
+const bot = new Telegraf("8122400303:AAF4egE_2-7vOT8UKIIgzkJ9TvV5DR7ZEpw"); // 🔥 استخدم التوكن الخاص بك
 
 // ✅ قائمة الأوامر المحدثة
 bot.start((ctx) => {
