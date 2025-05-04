@@ -7,7 +7,7 @@ admin.initializeApp({
 });
 
 const db = admin.firestore();
-const bot = new Telegraf("8122400303:AAF4egE_2-7vOT8UKIIgzkJ9TvV5DR7ZEpw");
+const bot = new Telegraf("7808305189:AAHtlzubXLTCyKvNSEHFHZ6jARSMDGorDGk");
 
 // ✅ حالات المستخدمين
 const userStates = new Map();
